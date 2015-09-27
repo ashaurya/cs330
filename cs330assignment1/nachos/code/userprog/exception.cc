@@ -246,11 +246,12 @@ ExceptionHandler(ExceptionType which)
        machine->WriteRegister(2, -1);
     }
     else{
-	if(progarray[waitaddr]==NULL) machine->WriteRegister(2, returnaddresses[waitaddr]);
+    	IntStatus oldLevel = interrupt->SetLevel(IntOff);
+	if(progarray[waitaddr]==NULL) {machine->WriteRegister(2, returnaddresses[waitaddr]);(void) interrupt->SetLevel(oldLevel);}
 	else {
 
 		waitingforchild[currentThread->getPID()]=waitaddr;
-   		IntStatus oldLevel = interrupt->SetLevel(IntOff);
+   		
    		currentThread->PutThreadToSleep();
 	   	(void) interrupt->SetLevel(oldLevel);
 		machine->WriteRegister(2, returnaddresses[waitaddr]);
