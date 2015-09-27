@@ -31,6 +31,12 @@
 //
 //	"threadName" is an arbitrary string, useful for debugging.
 //----------------------------------------------------------------------
+ int pidcount=0;
+ int totthread=0;
+ NachOSThread  * progarray[MAX_PROCESSES];
+ int   waitingforchild[MAX_PROCESSES];
+ int returnaddresses[MAX_PROCESSES];
+
 
 NachOSThread::NachOSThread(char* threadName)
 {
@@ -40,10 +46,52 @@ NachOSThread::NachOSThread(char* threadName)
     status = JUST_CREATED;
 #ifdef USER_PROGRAM
     space = NULL;
+	if(currentThread==NULL) ppid=0;
+    else
+    ppid=currentThread->getPID();   
+    pidcount=pidcount+1; 
+    pid=pidcount;
+    numinstr=0;
+    totthread=totthread+1;
+    sstamp=stats->systemTicks;
+    ustamp=stats->userTicks;
 #endif
 }
-
+void Runfirst(int d)
+{
+    if (threadToBeDestroyed != NULL) {
+        delete threadToBeDestroyed;
+        threadToBeDestroyed = NULL;
+    }
+    
+#ifdef USER_PROGRAM
+    if (currentThread->space != NULL) {     // if there is an address space
+        currentThread->RestoreUserState();     // to restore, do it.
+    currentThread->space->RestoreState();
+    }
+    machine->Run();         // jump to the user progam
+    ASSERT(FALSE);
+#endif
+   // return 0;
+}
 //----------------------------------------------------------------------
+
+
+int NachOSThread::CreateChild()
+{
+    NachOSThread * thread = new NachOSThread("notmain");
+    //progList->SortedInsert(thread,thread->getPID());
+    progarray[thread->pid]=thread;
+    #ifdef USER_PROGRAM
+    thread->space = new AddrSpace(true);
+    machine->WriteRegister(2, 0);
+    thread->SaveUserState();
+    //printf("sdfagg\n%d\nafsdgh\n",currentThread->userRegisters[2]);
+    thread->ThreadFork(Runfirst,0);
+    //return 0;
+    return thread->pid;
+    #endif
+}
 // NachOSThread::~NachOSThread
 // 	De-allocate a thread.
 //
@@ -140,16 +188,27 @@ NachOSThread::CheckOverflow()
 //----------------------------------------------------------------------
 
 //
+/*   ListElement *point=progList->gethead();
+    for (; point!=NULL; point=point->next)
+    {
+        if (point->item->pid)
+        {
+            
+        }
+    }*/
 void
 NachOSThread::FinishThread ()
 {
     (void) interrupt->SetLevel(IntOff);		
     ASSERT(this == currentThread);
-    
+    //progList->Delete(currentThread->getPID());
     DEBUG('t', "Finishing thread \"%s\"\n", getName());
     
     threadToBeDestroyed = currentThread;
-    PutThreadToSleep();					// invokes SWITCH
+
+    totthread--;
+    PutThreadToSleep();
+					// invokes SWITCH
     // not reached
 }
 
@@ -174,6 +233,8 @@ NachOSThread::FinishThread ()
 void
 NachOSThread::YieldCPU ()
 {
+currentThread->numinstr+=(stats->systemTicks-currentThread->sstamp)/SystemTick + (stats->userTicks-currentThread->ustamp)/UserTick;
+
     NachOSThread *nextThread;
     IntStatus oldLevel = interrupt->SetLevel(IntOff);
     
@@ -211,18 +272,20 @@ NachOSThread::YieldCPU ()
 void
 NachOSThread::PutThreadToSleep ()
 {
+    currentThread->numinstr+=(stats->systemTicks-currentThread->sstamp)/SystemTick + (stats->userTicks-currentThread->ustamp)/UserTick;
     NachOSThread *nextThread;
-    
+
+    if(threadToBeDestroyed!=NULL && totthread == 0) interrupt->Halt();   
     ASSERT(this == currentThread);
     ASSERT(interrupt->getLevel() == IntOff);
-    
     DEBUG('t', "Sleeping thread \"%s\"\n", getName());
-
     status = BLOCKED;
     while ((nextThread = scheduler->FindNextToRun()) == NULL)
-	interrupt->Idle();	// no one to run, wait for an interrupt
-        
+        interrupt->Idle();      // no one to run, wait for an interrupt
+
     scheduler->Run(nextThread); // returns when we've been signalled
+
+
 }
 
 //----------------------------------------------------------------------
@@ -248,6 +311,27 @@ void ThreadPrint(int arg){ NachOSThread *t = (NachOSThread *)arg; t->Print(); }
 //	"func" is the procedure to be forked
 //	"arg" is the parameter to be passed to the procedure
 //----------------------------------------------------------------------
+
+int NachOSThread::getPID()
+{
+	return pid;
+}
+
+int NachOSThread::getPPID()
+{
+        return ppid;
+}
+void NachOSThread::setPPID(int newppid)
+{   
+        ppid=newppid;
+}
+
+ThreadStatus NachOSThread::getStatus()
+{
+        return status;
+}
+
+
 
 void
 NachOSThread::ThreadStackAllocate (VoidFunctionPtr func, int arg)

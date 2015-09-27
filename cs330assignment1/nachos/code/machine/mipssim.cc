@@ -36,8 +36,9 @@ Machine::Run()
         printf("Starting thread \"%s\" at time %d\n",
 	       currentThread->getName(), stats->totalTicks);
     interrupt->setStatus(UserMode);
-    for (;;) {
+       for (;;) {
         OneInstruction(instr);
+       	//printf("%d\n",currentThread->getPID() );
 	interrupt->OneTick();
 	if (singleStep && (runUntilTime <= stats->totalTicks))
 	  Debugger();

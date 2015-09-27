@@ -29,15 +29,16 @@ main()
        system_PrintString("Child executed ");
        system_PrintInt(system_GetNumInstr());
        system_PrintString(" instructions.\n");
+	system_Exit(999);
     }
     else {
-       system_PrintString("Parent after fork waiting for child: ");
-       system_PrintInt(x);
+       system_PrintString("Parent after fork waiting for child: ||||||||||||||||||||||||");
+      int ww= system_Join(x);
+       system_PrintInt(ww);
        system_PrintChar('\n');
-       system_Join(x);
-       system_PrintString("Parent executed ");
+       system_PrintString("Parent executed$$$$$$$$$$$$$$$$$$$$$$ ");
        system_PrintInt(system_GetNumInstr());
-       system_PrintString(" instructions.\n");
+       system_PrintString(" instructions||||||||||||||||||||||.\n");
     }
     return 0;
 }

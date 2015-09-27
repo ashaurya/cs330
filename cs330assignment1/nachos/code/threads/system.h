@@ -16,6 +16,7 @@
 #include "stats.h"
 #include "timer.h"
 
+#define MAX_PROCESSES 100
 // Initialization and cleanup routines
 extern void Initialize(int argc, char **argv); 	// Initialization,
 						// called before anything else
@@ -50,5 +51,12 @@ extern SynchDisk   *synchDisk;
 #include "post.h"
 extern PostOffice* postOffice;
 #endif
+extern int totthread;
+extern int pidcount;
+extern NachOSThread  * progarray[MAX_PROCESSES];
+extern int   waitingforchild[MAX_PROCESSES];
+extern int returnaddresses[MAX_PROCESSES];
+
+//static List *waitList;
 
 #endif // SYSTEM_H

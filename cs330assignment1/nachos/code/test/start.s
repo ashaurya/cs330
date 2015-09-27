@@ -218,6 +218,15 @@ system_PrintIntHex:
 	j	$31
 	.end system_PrintIntHex
 
+        .globl system_Testing
+        .ent    system_Testing
+system_Testing:
+        addiu $2,$0,syscall_Testing
+        syscall
+        j       $31
+        .end system_Testing
+
+
 /* dummy function to keep gcc happy */
         .globl  __main
         .ent    __main

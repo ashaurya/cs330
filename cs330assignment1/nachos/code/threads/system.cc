@@ -18,7 +18,7 @@ Interrupt *interrupt;			// interrupt status
 Statistics *stats;			// performance metrics
 Timer *timer;				// the hardware timer device,
 					// for invoking context switches
-
+//int pidcount;
 #ifdef FILESYS_NEEDED
 FileSystem  *fileSystem;
 #endif
@@ -63,6 +63,18 @@ TimerInterruptHandler(int dummy)
 {
     if (interrupt->getStatus() != IdleMode)
 	interrupt->YieldOnReturn();
+    for(;!scheduler->sleepList->IsEmpty();)
+	{
+	    NachOSThread * tempThread;
+  	    tempThread = (NachOSThread *)scheduler->sleepList->Remove();
+	    if (tempThread->waketime>stats->totalTicks)
+	 	{
+			scheduler->sleepList->SortedInsert(tempThread,tempThread->waketime);
+			break;
+   		}
+	    scheduler->ReadyToRun(tempThread);
+	}
+
 }
 
 //----------------------------------------------------------------------
@@ -78,10 +90,11 @@ TimerInterruptHandler(int dummy)
 void
 Initialize(int argc, char **argv)
 {
+    
+   // pidcount=1;
     int argCount;
     char* debugArgs = "";
     bool randomYield = FALSE;
-
     initializedConsoleSemaphores = false;
 
 #ifdef USER_PROGRAM
@@ -94,7 +107,6 @@ Initialize(int argc, char **argv)
     double rely = 1;		// network reliability
     int netname = 0;		// UNIX socket name
 #endif
-    
     for (argc--, argv++; argc > 0; argc -= argCount, argv += argCount) {
 	argCount = 1;
 	if (!strcmp(*argv, "-d")) {
@@ -140,13 +152,13 @@ Initialize(int argc, char **argv)
 	timer = new Timer(TimerInterruptHandler, 0, randomYield);
 
     threadToBeDestroyed = NULL;
-
     // We didn't explicitly allocate the current thread we are running in.
     // But if it ever tries to give up the CPU, we better have a Thread
     // object to save its state. 
-    currentThread = new NachOSThread("main");		
+    currentThread = new NachOSThread("main");	
+    //progList->SortedInsert(currentThread,currentThread->getPID());	
+    progarray[currentThread->getPID()] = currentThread;
     currentThread->setStatus(RUNNING);
-
     interrupt->Enable();
     CallOnUserAbort(Cleanup);			// if user hits ctl-C
     

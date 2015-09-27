@@ -17,6 +17,7 @@ main()
     for (i=0; i<SIZE; i++) array[i] = i;
     system_PrintString("We are currently at PC: ");
     system_PrintIntHex(system_GetReg(34));
+    system_Testing();
     system_PrintChar('\n');
     for (i=0; i<SIZE; i++) sum += array[i];
     system_PrintString("Total sum: ");

@@ -32,7 +32,7 @@
 					// the disk sector size, for
 					// simplicity
 
-#define NumPhysPages    32
+#define NumPhysPages    128
 #define MemorySize 	(NumPhysPages * PageSize)
 #define TLBSize		4		// if there is a TLB, make it small
 
@@ -112,7 +112,7 @@ class Machine {
 
 // Routines callable by the Nachos kernel
     void Run();	 		// Run a user program
-
+	//int pidcount;
     int ReadRegister(int num);	// read the contents of a CPU register
 
     void WriteRegister(int num, int value);

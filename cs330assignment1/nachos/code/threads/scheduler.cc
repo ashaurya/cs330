@@ -21,7 +21,8 @@
 #include "copyright.h"
 #include "scheduler.h"
 #include "system.h"
-
+/*#include "machine.h"
+extern Machine* machine;*/
 //----------------------------------------------------------------------
 // Scheduler::Scheduler
 // 	Initialize the list of ready but not running threads to empty.
@@ -29,7 +30,8 @@
 
 Scheduler::Scheduler()
 { 
-    readyList = new List; 
+    readyList = new List;
+    sleepList = new List; 
 } 
 
 //----------------------------------------------------------------------
@@ -40,6 +42,7 @@ Scheduler::Scheduler()
 Scheduler::~Scheduler()
 { 
     delete readyList; 
+    delete sleepList;
 } 
 
 //----------------------------------------------------------------------
@@ -88,6 +91,16 @@ Scheduler::FindNextToRun ()
 //----------------------------------------------------------------------
 
 void
+Scheduler::ScheduledSleep(int timeforsleep)
+{
+   currentThread->waketime=stats->totalTicks+timeforsleep;
+   sleepList->SortedInsert(currentThread,currentThread->waketime);
+   IntStatus oldLevel = interrupt->SetLevel(IntOff);
+   currentThread->PutThreadToSleep();
+   (void) interrupt->SetLevel(oldLevel);
+}
+
+void
 Scheduler::Run (NachOSThread *nextThread)
 {
     NachOSThread *oldThread = currentThread;
@@ -102,14 +115,17 @@ Scheduler::Run (NachOSThread *nextThread)
     oldThread->CheckOverflow();		    // check if the old thread
 					    // had an undetected stack overflow
 
-    currentThread = nextThread;		    // switch to the next thread
+    currentThread = nextThread;
+		    // switch to the next thread
     currentThread->setStatus(RUNNING);      // nextThread is now running
     
+    currentThread->sstamp=stats->systemTicks;
+    currentThread->ustamp=stats->userTicks;
     DEBUG('t', "Switching from thread \"%s\" to thread \"%s\"\n",
 	  oldThread->getName(), nextThread->getName());
     
     // This is a machine-dependent assembly language routine defined 
-    // in switch.s.  You may have to think
+
     // a bit to figure out what happens after this, both from the point
     // of view of the thread and from the perspective of the "outside world".
 
@@ -133,6 +149,8 @@ Scheduler::Run (NachOSThread *nextThread)
     }
 #endif
 }
+
+
 
 //----------------------------------------------------------------------
 // Scheduler::Print

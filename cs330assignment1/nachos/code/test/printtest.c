@@ -15,9 +15,43 @@
 int
 main()
 {
-    system_PrintString("hello world\n");
-    system_PrintString("Executed ");
+	system_PrintString("hello world\n");
+  system_PrintInt(3);
+/*  
+    system_PrintString("Executed\n ");
+    system_Testing();
+    system_PrintString("Executed\n ");
+//system_Sleep(30);
     system_PrintInt(system_GetNumInstr());
-    system_PrintString(" instructions.\n");
-    return 0;
+//    return 0;
+int i;*/
+
+//system_PrintString("\n\n\n\n\n");
+//system_PrintInt(system_Fork());
+//system_PrintString("\n\n\n\n\n");
+int g;
+    g=system_Fork();
+	system_PrintString("Executed\n ");
+	system_PrintInt(g);
+/*if (g==0)
+{
+	system_PrintString("Executed\n ");
+	//while(1);
+}*/
+/*
+else
+{
+	system_PrintInt(g);
+	system_PrintString("fello world\n");
+	while(1);
+}
+while(1);*/
+//	for(i=0;i<10000;i++) {
+// system_PrintInt(i);
+//system_PrintString("\n");
+//if(i%2==0) system_Sleep(10000000);
+//}
+/*    system_PrintString("instructions.\n");
+
+    system_PrintInt(system_GetNumInstr());*/
 }

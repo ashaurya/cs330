@@ -27,6 +27,8 @@
 //	"sortKey" is the priority of the item, if any.
 //----------------------------------------------------------------------
 
+
+
 ListElement::ListElement(void *itemPtr, int sortKey)
 {
      item = itemPtr;
@@ -112,7 +114,9 @@ List::Prepend(void *item)
 	first = element;
     }
 }
-
+ListElement * List::gethead(){
+    return first;
+}
 //----------------------------------------------------------------------
 // List::Remove
 //      Remove the first "item" from the front of the list.
@@ -125,6 +129,36 @@ void *
 List::Remove()
 {
     return SortedRemove(NULL);  // Same as SortedRemove, but ignore the key
+}
+
+void 
+List::Delete(int sortKey)
+{
+    ListElement *point=first;
+    if(first->key==sortKey) {Remove();return;}
+    for (; point->next!=NULL; point=point->next)
+    {
+        if (point->next->key==sortKey)
+        {
+            ListElement *temp=point->next;
+	    point->next=point->next->next;  // Same as SortedRemove, but ignore the key
+	    delete temp;
+        }
+    }
+}
+
+void *
+List::FindInList(int sortKey)
+{
+    ListElement *point=first;
+    for (; point!=NULL; point=point->next)
+    {
+        if (point->key==sortKey)
+        {
+            return point->item;
+        }
+    }
+    return NULL;
 }
 
 //----------------------------------------------------------------------

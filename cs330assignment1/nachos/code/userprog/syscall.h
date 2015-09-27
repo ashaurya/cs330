@@ -48,6 +48,7 @@
 #define syscall_PrintIntHex  	20
 
 #define syscall_NumInstr	50
+#define syscall_Testing		71
 
 #ifndef IN_ASM
 
@@ -63,6 +64,7 @@
 
 /* Stop Nachos, and print out performance stats */
 void system_Halt();		
+void system_Testing();
  
 
 /* Address space control operations: Exit, Exec, and Join */
@@ -160,7 +162,7 @@ int system_GetPID (void);
 
 int system_GetPPID (void);
 
-void system_Sleep (unsigned);
+void system_Sleep (unsigned int);
 
 int system_GetTime (void);
 

@@ -55,7 +55,8 @@ void CheckEndian()
 Machine::Machine(bool debug)
 {
     int i;
-
+  // pidcount=1; 
+   printf("progtest in userprog -- entering the process\n");
     for (i = 0; i < NumTotalRegs; i++)
         registers[i] = 0;
     mainMemory = new char[MemorySize];
@@ -209,6 +210,7 @@ void Machine::WriteRegister(int num, int value)
     {
 	ASSERT((num >= 0) && (num < NumTotalRegs));
 	// DEBUG('m', "WriteRegister %d, value %d\n", num, value);
+	// printf("fuck\n");
 	registers[num] = value;
     }
 

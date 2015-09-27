@@ -57,7 +57,7 @@
 
 
 // Thread state
-enum ThreadStatus { JUST_CREATED, RUNNING, READY, BLOCKED };
+enum ThreadStatus { JUST_CREATED, RUNNING, READY, BLOCKED};
 
 // external function, dummy routine whose sole job is to call NachOSThread::Print
 extern void ThreadPrint(int arg);	 
@@ -83,12 +83,15 @@ class NachOSThread {
   public:
     NachOSThread(char* debugName);		// initialize a Thread 
     ~NachOSThread(); 				// deallocate a Thread
-					// NOTE -- thread being deleted
-					// must not be running when delete 
-					// is called
-
+    int getPID();					// NOTE -- thread being deleted
+    int getPPID();
+    void setPPID(int newppid);
+    ThreadStatus getStatus();						// must not be running when delete 
+    int numinstr;					// is called
+    int ustamp;
+    int sstamp;	
     // basic thread operations
-
+    int CreateChild();
     void ThreadFork(VoidFunctionPtr func, int arg); 	// Make thread run (*func)(arg)
     void YieldCPU();  				// Relinquish the CPU if any 
 						// other thread is runnable
@@ -101,6 +104,7 @@ class NachOSThread {
     void setStatus(ThreadStatus st) { status = st; }
     char* getName() { return (name); }
     void Print() { printf("%s, ", name); }
+    int waketime;
 
   private:
     // some of the private data for this class is listed above
@@ -108,7 +112,7 @@ class NachOSThread {
     int* stack; 	 		// Bottom of the stack 
 					// NULL if this is the main thread
 					// (If NULL, don't deallocate stack)
-    ThreadStatus status;		// ready, running or blocked
+    ThreadStatus status;
     char* name;
 
     void ThreadStackAllocate(VoidFunctionPtr func, int arg);
