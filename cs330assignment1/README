@@ -1,0 +1,334 @@
+CS330 Assignment 1
+
+Changes in files:
+
+/nachos/code/userprog/exception.cc
+
+/nachos/code/userprog/addrspace.h
+/nachos/code/userprog/addrspace.cc
+
+/nachos/code/threads/thread.h
+/nachos/code/threads/thread.cc
+
+/nachos/code/threads/system.h
++extern NachOSThread* progarray[MAX_PROCESSES];
++extern int waitingforchild[MAX_PROCESSES];
++extern int returnaddresses[MAX_PROCESSES];
+The above additions were made for reference in syscall_Join and syscall_Exit.
+
+/nachos/code/threads/system.cc
+
+/nachos/code/threads/scheduler.h
+/nachos/code/threads/scheduler.cc
+
+/nachos/code/machine/machine.h - changed the value of NumPhysPages from 32 to 128
+
+System Call Implementations:
+
+Since the execution of any system call starts in exception.cc, initially for simple system calls, changes were made in exception.cc only.
+Note: If not mentioned explicitly, all changes are made in the file /nachos/code/userprog/exception.cc only.
+
+
+syscall_GetReg:
+
++ else if ((which == SyscallException) && (type == syscall_GetReg)) {
++
++	int query_reg = machine->ReadRegister(4);			//reading value of register
++	if (query_reg >= NumTotalRegs || query_reg < 0)
++		ASSERT(FALSE);	
++
++	int ans_reg=machine->ReadRegister(query_reg);
++
++	machine->WriteRegister(2, ans_reg);					//writing the result to register 2 to return
++ }
+
+
+syscall_getPID:
+
++ else if ((which == SyscallException) && (type == syscall_GetPID)) {
++
++        machine->WriteRegister(2, currentThread->getPID());
++ }
+
+
+syscall_getPPID:
+
++ else if ((which == SyscallException) && (type == syscall_GetPPID)) {
++
++        machine->WriteRegister(2, currentThread->getPPID());
++ }
+
+For the last 2 system calls, changes were made in other files also:
+
+New functions int getPPID() and int getPID() were declared in the file /nachos/code/threads/thread.cc and corresponding header files.
+
+Additions in threads.cc:
+
+NachOSThread::NachOSThread(char* threadName)
+
++	if(currentThread==NULL) ppid=0;
++    else
++    ppid=currentThread->getPID();   
++    pidcount=pidcount+1; 
++    pid=pidcount;
++    numinstr=0;
++    totthread=totthread+1;
++    sstamp=stats->systemTicks;
++    ustamp=stats->userTicks;
++	 if(currentThread==NULL) ppid=0;
++    else
++    ppid=currentThread->getPID();   
+
++int NachOSThread::getPID()
++{
++	return pid;
++}
+
++int NachOSThread::getPPID()
++{
++        return ppid;
++}
+
+
+syscall_Time:
+
++ else if ((which == SyscallException) && (type == syscall_Time)) {
++
++        machine->WriteRegister(2, stats->totalTicks);
++ }
+
+
+syscall_NumInstr:
+
++ else if ((which == SyscallException) && (type == syscall_NumInstr)) {
++
++        machine->WriteRegister(2, currentThread->numinstr + (stats->systemTicks-currentThread->sstamp)/SystemTick + (stats->userTicks-currentThread->ustamp)/UserTick);
++ }
+
+
+syscall_Yeild:
+
++ else if ((which == SyscallException) && (type == syscall_Yield)) {
++
++	currentThread->YieldCPU ();
++ }
+
+
+syscall_getPA:
+
+Reference: translate.cc
+
++ else if ((which == SyscallException) && (type == syscall_getPA)) {
++	 int virtAddr=machine->ReadRegister(4);
++    TranslationEntry *entry;
++    int i,flag=0;int physAddr;
++    unsigned int vpn, offset;
++    unsigned int pageFrame;
++ 
++    ASSERT(machine->tlb == NULL || machine->pageTable == NULL);
++    ASSERT(machine->tlb != NULL || machine->pageTable != NULL);
++ 
++    vpn = (unsigned) virtAddr / PageSize;
++    offset = (unsigned) virtAddr % PageSize;
++ 
++    if (machine->tlb == NULL) {
++      if (vpn >= machine->pageTableSize || !machine->pageTable[vpn].valid) { flag=1; }
++      else{entry = &machine->pageTable[vpn];}
++    }
++    else {
++      for (entry = NULL, i = 0; i < TLBSize; i++)
++        if (machine->tlb[i].valid && (machine->tlb[i].virtualPage == vpn)) {
++          entry = &machine->tlb[i];                     // FOUND!
++          break;
++        }
++      if (entry == NULL) {  flag=1;}
++    }
++ 
++ 
++    if(flag==1){machine->WriteRegister(2,-1);}
++    else
++      {
++        pageFrame = entry->physicalPage;
++        if (pageFrame >= NumPhysPages) {
++          machine->WriteRegister(2,-1); }
++       
++        else{
++          physAddr = pageFrame * PageSize + offset;
++          if((physAddr >= 0) && ((physAddr) <= MemorySize)){
++           machine->WriteRegister(2,physAddr);}
++     else{ machine->WriteRegister(2,-1); };
++        }
++	}
++ }
+
+
+syscall_Sleep:
+
++  else if ((which == SyscallException) && (type == syscall_Sleep)) {
++
++  int sleeptime = (unsigned)machine->ReadRegister(4);
++  if (sleeptime == 0) currentThread->YieldCPU ();
++  else
++  {
++    scheduler->ScheduledSleep(sleeptime);
++  }
++  }
+
+changes were made in /nachos/code/threads/scheduler.cc and corresponding header to add the function void ScheduledSleep(int):
+
++ void
++ Scheduler::ScheduledSleep(int timeforsleep)
++ {
++    currentThread->waketime=stats->totalTicks+timeforsleep;
++    sleepList->SortedInsert(currentThread,currentThread->waketime);
++    IntStatus oldLevel = interrupt->SetLevel(IntOff);
++    currentThread->PutThreadToSleep();
++    (void) interrupt->SetLevel(oldLevel);
++ }
+
+and the following were added in /nachos/code/threads/system.cc to wake up the thread from sleep:
+
++   for(;!scheduler->sleepList->IsEmpty();)
++	{
++	    NachOSThread * tempThread;
++  	    tempThread = (NachOSThread *)scheduler->sleepList->Remove();
++	    if (tempThread->waketime>stats->totalTicks)
++	 	{
++			scheduler->sleepList->SortedInsert(tempThread,tempThread->waketime);
++			break;
++   	}
++	    scheduler->ReadyToRun(tempThread);
++	}
+
+
+syscall_Exec:
+
++ else if ((which == SyscallException) && (type == syscall_Exec)) {
++	vaddr = machine->ReadRegister(4);
++	char tempprog[100];
++	int i=0;
++	machine->ReadMem(vaddr, 1, &memval);
++	while ( (*(char*) &memval) != '\0') {
++		tempprog[i] = (*(char*)&memval);
++		vaddr++;
++		i++;
++		machine->ReadMem(vaddr, 1, &memval);
++	}
++	tempprog[i]='\0';
++	//currentThread->space->~AddrSpace();
++	StartProcess(tempprog);
++
++ }
+
+
+syscall_Exit:
+
++ else if ((which == SyscallException) && (type == syscall_Exit)) {
++
++	int i;
++	returnaddresses[currentThread->getPID()]=machine->ReadRegister(4);
++	if (progarray[currentThread->getPPID()]!=NULL&&waitingforchild[currentThread->getPPID()]==currentThread->getPID())
++	{
++		waitingforchild[currentThread->getPPID()]=0;
++		scheduler->ReadyToRun(progarray[currentThread->getPPID()]);
++	}
++	for(i=0;i<=pidcount;i++)
++	{
++		if(progarray[i]!=NULL&&progarray[i]->getPPID()==currentThread->getPID()) progarray[i]->setPPID(0);
++	}
++        currentThread->FinishThread ();
++ }
+
+
+syscall_Join:
+
++ else if ((which == SyscallException) && (type == syscall_Join)) {
++	int waitaddr = machine->ReadRegister(4);
++   if (progarray[waitaddr]->getPPID()!=currentThread->getPID())
++   {
++		machine->WriteRegister(2, -1);
++   }
++   else {
++    	IntStatus oldLevel = interrupt->SetLevel(IntOff);
++		if(progarray[waitaddr]==NULL) {machine->WriteRegister(2, returnaddresses[waitaddr]);(void) interrupt->SetLevel(oldLevel);
++	}
++
++		else {
++			waitingforchild[currentThread->getPID()] = waitaddr;
++   		currentThread->PutThreadToSleep();
++		   	(void) interrupt->SetLevel(oldLevel);
++			machine->WriteRegister(2, returnaddresses[waitaddr]);
++		}   
++	}
++ }
+
+
+syscall_Fork:
+
++ else if ((which == SyscallException) && (type == syscall_Fork)) {
++     machine->WriteRegister(2, currentThread->CreateChild());
++ }
+
+The function CreateChild() is written in /nachos/code/threads/thread.cc. The code is as follows:
+
++void Runfirst(int d)
++{
++    if (threadToBeDestroyed != NULL) {
++        delete threadToBeDestroyed;
++        threadToBeDestroyed = NULL;
++    }
++    
++#ifdef USER_PROGRAM
++    if (currentThread->space != NULL) {     // if there is an address space
++        currentThread->RestoreUserState();     // to restore, do it.
++    currentThread->space->RestoreState();
++    }
++    machine->Run();         // jump to the user progam
++    ASSERT(FALSE);
++#endif
++   // return 0;
++}
++
++
++int NachOSThread::CreateChild()
++{
++    NachOSThread * thread = new NachOSThread("notmain");
++    //progList->SortedInsert(thread,thread->getPID());
++    progarray[thread->pid]=thread;
++    #ifdef USER_PROGRAM
++    thread->space = new AddrSpace(true);
++    machine->WriteRegister(2, 0);
++    thread->SaveUserState();
++    //printf("sdfagg\n%d\nafsdgh\n",currentThread->userRegisters[2]);
++    thread->ThreadFork(Runfirst,0);
++    //return 0;
++    return thread->pid;
++    #endif
++}
+
+The function AddrSpace(bool) is defined in /nachos/code/userprog/addrspace.cc.
+Reference: AddrSpace(char* filename)
+
++AddrSpace::AddrSpace(bool child)
++{
++    unsigned int i, size;
++    numPages = currentThread->space->numPages;
++    size = numPages * PageSize;
++
++    ASSERT(numPages <= NumPhysPages); 
++    pageTable = new TranslationEntry[numPages];
++    for (i = 0; i < numPages; i++) {
++    pageTable[i].virtualPage = i;
++    pageTable[i].physicalPage = i+physicaloffset;
++    pageTable[i].valid = TRUE;
++    pageTable[i].use = FALSE;
++    pageTable[i].dirty = FALSE;
++    pageTable[i].readOnly = FALSE;
++    }
++    for (int i = 0; i < size; ++i)
++    {
++        *(machine->mainMemory + physicaloffset*PageSize + i) = *(machine->mainMemory + currentThread->space->pageTable[0].physicalPage*PageSize + i);
++    }
++
++    physicaloffset+=numPages; 
++}

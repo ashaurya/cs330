@@ -210,7 +210,7 @@ void Machine::WriteRegister(int num, int value)
     {
 	ASSERT((num >= 0) && (num < NumTotalRegs));
 	// DEBUG('m', "WriteRegister %d, value %d\n", num, value);
-	// printf("fuck\n");
+	// 
 	registers[num] = value;
     }
 
