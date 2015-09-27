@@ -88,8 +88,9 @@ NachOSThread::NachOSThread(char* threadName)
 +        return ppid;
 +}
 
-pidcount tracks the max pid assigned to a thread.
-numinstr keeps track of the number of instru
+pidcount tracks the max pid assigned to a thread. Hence eveytime a unique pid is assigned to the new thread.
+numinstr keeps track of the number of instruction. using sstamp and ustamp variable.
+
 
 
 syscall_Time:
@@ -106,12 +107,14 @@ syscall_NumInstr:
 +
 +        machine->WriteRegister(2, currentThread->numinstr + (stats->systemTicks-currentThread->sstamp)/SystemTick + (stats->userTicks-currentThread->ustamp)/UserTick);
 + }
-numinstr, sstamp and ustamp is used to keep track of the total number of instruction executed by the thread in both the Kernel and User mode.
-Whenever we start running a thread we update the sstamp and ustamp. And when the thread yields or sleeps (system context switches) then we update numinsts using the current UserTicks, current SystemTicks, and the saved sstamp, and ustamp.
 
-changed in scheduler->run();
-NachOSThread::YieldCPU()
-NachOSThread::PutThreadToSleep()
+ numinstr, sstamp and ustamp is used to keep track of the total number of instruction executed by the thread in both the Kernel and User mode.
+ Whenever we start running a thread we update the sstamp and ustamp. And when the thread yields or sleeps (system context switches) then we update numinsts using the current UserTicks, current SystemTicks, and the saved sstamp, and ustamp.
+
+changed in:
+scheduler->run();
+NachOSThread::YieldCPU();
+NachOSThread::PutThreadToSleep();
 
 
 syscall_Yeild:
@@ -196,9 +199,8 @@ changes were made in /nachos/code/threads/scheduler.cc and corresponding header 
 +    (void) interrupt->SetLevel(oldLevel);
 + }
 
-A new list of sleeping procccesses (SleepList) is created. Whenever a thread goes to sleep, we insert that thread into the sleep list sorted according to their absolute wake up time.
+A new list of sleeping processes (SleepList) is created. Whenever a thread goes to sleep, we insert that thread into the sleep list sorted according to their absolute wake up time.
 We have changed the interrup handler. At every interrupt, the interrupt handler checks whether to wake up the front thread whose wake up time is greater than the rest of the sleeping threads. The for loop wakes up the eligible processes.
-
 And the following were added in /nachos/code/threads/system.cc to wake up the thread from sleep:
 
 +   for(;!scheduler->sleepList->IsEmpty();)
