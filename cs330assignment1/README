@@ -72,7 +72,6 @@ NachOSThread::NachOSThread(char* threadName)
 +    pidcount=pidcount+1; 
 +    pid=pidcount;
 +    numinstr=0;
-+    totthread=totthread+1;
 +    sstamp=stats->systemTicks;
 +    ustamp=stats->userTicks;
 +	 if(currentThread==NULL) ppid=0;
@@ -89,6 +88,9 @@ NachOSThread::NachOSThread(char* threadName)
 +        return ppid;
 +}
 
+pidcount tracks the max pid assigned to a thread.
+numinstr keeps track of the number of instru
+
 
 syscall_Time:
 
@@ -104,6 +106,12 @@ syscall_NumInstr:
 +
 +        machine->WriteRegister(2, currentThread->numinstr + (stats->systemTicks-currentThread->sstamp)/SystemTick + (stats->userTicks-currentThread->ustamp)/UserTick);
 + }
+numinstr, sstamp and ustamp is used to keep track of the total number of instruction executed by the thread in both the Kernel and User mode.
+Whenever we start running a thread we update the sstamp and ustamp. And when the thread yields or sleeps (system context switches) then we update numinsts using the current UserTicks, current SystemTicks, and the saved sstamp, and ustamp.
+
+changed in scheduler->run();
+NachOSThread::YieldCPU()
+NachOSThread::PutThreadToSleep()
 
 
 syscall_Yeild:
@@ -132,12 +140,12 @@ Reference: translate.cc
 +    offset = (unsigned) virtAddr % PageSize;
 + 
 +    if (machine->tlb == NULL) {
-+      if (vpn >= machine->pageTableSize || !machine->pageTable[vpn].valid) { flag=1; }
++      if (vpn >= machine->pageTableSize || !machine->pageTable[vpn].valid) { flag=1; }     //checks the 1st and 2nd condition. if tlb is null.
 +      else{entry = &machine->pageTable[vpn];}
 +    }
 +    else {
 +      for (entry = NULL, i = 0; i < TLBSize; i++)
-+        if (machine->tlb[i].valid && (machine->tlb[i].virtualPage == vpn)) {
++        if (machine->tlb[i].valid && (machine->tlb[i].virtualPage == vpn)) {				//checks the 1st and 2nd condition. if tlb is not null
 +          entry = &machine->tlb[i];                     // FOUND!
 +          break;
 +        }
@@ -149,17 +157,19 @@ Reference: translate.cc
 +    else
 +      {
 +        pageFrame = entry->physicalPage;
-+        if (pageFrame >= NumPhysPages) {
++        if (pageFrame >= NumPhysPages) {	
 +          machine->WriteRegister(2,-1); }
 +       
 +        else{
 +          physAddr = pageFrame * PageSize + offset;
-+          if((physAddr >= 0) && ((physAddr) <= MemorySize)){
++          if((physAddr >= 0) && ((physAddr) <= MemorySize)){       						//checks the 3rd condition.
 +           machine->WriteRegister(2,physAddr);}
 +     else{ machine->WriteRegister(2,-1); };
 +        }
 +	}
 + }
++
+
 
 
 syscall_Sleep:
@@ -186,7 +196,10 @@ changes were made in /nachos/code/threads/scheduler.cc and corresponding header 
 +    (void) interrupt->SetLevel(oldLevel);
 + }
 
-and the following were added in /nachos/code/threads/system.cc to wake up the thread from sleep:
+A new list of sleeping procccesses (SleepList) is created. Whenever a thread goes to sleep, we insert that thread into the sleep list sorted according to their absolute wake up time.
+We have changed the interrup handler. At every interrupt, the interrupt handler checks whether to wake up the front thread whose wake up time is greater than the rest of the sleeping threads. The for loop wakes up the eligible processes.
+
+And the following were added in /nachos/code/threads/system.cc to wake up the thread from sleep:
 
 +   for(;!scheduler->sleepList->IsEmpty();)
 +	{
@@ -215,10 +228,10 @@ syscall_Exec:
 +		machine->ReadMem(vaddr, 1, &memval);
 +	}
 +	tempprog[i]='\0';
-+	//currentThread->space->~AddrSpace();
 +	StartProcess(tempprog);
-+
 + }
+
+StartProcess defined in progtest.cc does the same thing as the exec which we want to do.
 
 
 syscall_Exit:
@@ -293,20 +306,18 @@ The function CreateChild() is written in /nachos/code/threads/thread.cc. The cod
 +int NachOSThread::CreateChild()
 +{
 +    NachOSThread * thread = new NachOSThread("notmain");
-+    //progList->SortedInsert(thread,thread->getPID());
 +    progarray[thread->pid]=thread;
 +    #ifdef USER_PROGRAM
 +    thread->space = new AddrSpace(true);
 +    machine->WriteRegister(2, 0);
 +    thread->SaveUserState();
-+    //printf("sdfagg\n%d\nafsdgh\n",currentThread->userRegisters[2]);
 +    thread->ThreadFork(Runfirst,0);
-+    //return 0;
 +    return thread->pid;
 +    #endif
 +}
 
 The function AddrSpace(bool) is defined in /nachos/code/userprog/addrspace.cc.
+
 Reference: AddrSpace(char* filename)
 
 +AddrSpace::AddrSpace(bool child)
@@ -332,3 +343,8 @@ Reference: AddrSpace(char* filename)
 +
 +    physicaloffset+=numPages; 
 +}
+
+In the above functions:
+AddrSpace(true): creates a new address space and page table for the forked thread and duplicates the code and data section of the main memory corresponding to the parent thread.
+CreateChild: The return value of the parent is set to 0, context is copied for the child and finally ThreadFork is invoked to create the new stack.
+RunFirst function is invoked when the forked child is executed for the first time. It also deletes the threads marked as threadToBeDestroyed.
